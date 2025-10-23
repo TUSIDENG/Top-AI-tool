@@ -79,7 +79,7 @@ class AgentTask(BaseModel):
 @app.post("/run_agent")
 async def run_agent_task(agent_task: AgentTask):
     print(f"🔧 TOOL_RUNTIME: Starting agent task: {agent_task.task}")
-    result = await agent_executor.ainvoke({"input": agent_task.task}, config={"recursion_limit": 50})
+    result = await agent_executor.ainvoke({"input": agent_task.task}, config={"recursion_limit": 100})
     print(f"✅ TOOL_RUNTIME: Agent task completed")
     return {"result": result}
 
