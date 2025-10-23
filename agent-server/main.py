@@ -1,24 +1,28 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List
 import sqlite3
-import os
-import asyncio # Added for Playwright
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.tools import tool
-from langchain_community.llms import OpenAI # Placeholder, actual model will be configured
-from .agent.core import create_ai_tools_agent # Import the agent factory
+import asyncio
+from agent.core import create_ai_tools_agent
+from config import config
 
 app = FastAPI()
 
-DATABASE_FILE = "ai_tools.db"
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # React development server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialize the agent globally
 agent_executor = create_ai_tools_agent()
 
 def init_db():
-    conn = sqlite3.connect(DATABASE_FILE)
+    conn = sqlite3.connect(config.get_database_path())
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS ai_tools (
@@ -50,7 +54,7 @@ async def read_root():
 
 @app.get("/tools", response_model=List[ToolItem])
 async def get_ai_tools():
-    conn = sqlite3.connect(DATABASE_FILE)
+    conn = sqlite3.connect(config.get_database_path())
     cursor = conn.cursor()
     cursor.execute("SELECT name, description, url, source, search_query FROM ai_tools ORDER BY timestamp DESC")
     tools = cursor.fetchall()
@@ -59,7 +63,7 @@ async def get_ai_tools():
 
 @app.post("/tools")
 async def add_ai_tool(tool_item: ToolItem):
-    conn = sqlite3.connect(DATABASE_FILE)
+    conn = sqlite3.connect(config.get_database_path())
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO ai_tools (name, description, url, source, search_query) VALUES (?, ?, ?, ?, ?)",
@@ -69,7 +73,16 @@ async def add_ai_tool(tool_item: ToolItem):
     conn.close()
     return {"message": "Tool added successfully", "tool": tool_item}
 
+class AgentTask(BaseModel):
+    task: str
+
 @app.post("/run_agent")
-async def run_agent_task(task: str):
-    result = await agent_executor.ainvoke({"input": task})
+async def run_agent_task(agent_task: AgentTask):
+    print(f"🔧 TOOL_RUNTIME: Starting agent task: {agent_task.task}")
+    result = await agent_executor.ainvoke({"input": agent_task.task})
+    print(f"✅ TOOL_RUNTIME: Agent task completed")
     return {"result": result}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host=config.HOST, port=config.PORT)
