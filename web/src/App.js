@@ -7,10 +7,17 @@ function App() {
   const [agentTask, setAgentTask] = useState('');
   const [agentResponse, setAgentResponse] = useState('');
   const [submittingAgentTask, setSubmittingAgentTask] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [limit, setLimit] = useState(20);
 
-  const fetchTools = async () => {
+  const fetchTools = async (search = '', toolLimit = limit) => {
     try {
-      const response = await fetch('http://localhost:8000/tools');
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (toolLimit) params.append('limit', toolLimit);
+      
+      const response = await fetch(`http://localhost:8000/tools?${params}`);
       const data = await response.json();
       setTools(data);
     } catch (error) {
@@ -80,23 +87,75 @@ function App() {
 
         <section className="tools-list-section">
           <h2>Collected AI Tools</h2>
+          
+          {/* Search and Filter Controls */}
+          <div className="tools-controls">
+            <div className="search-box">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search tools by name or description..."
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    fetchTools(searchTerm, limit);
+                  }
+                }}
+              />
+              <button onClick={() => fetchTools(searchTerm, limit)}>Search</button>
+              {searchTerm && (
+                <button 
+                  onClick={() => {
+                    setSearchTerm('');
+                    fetchTools('', limit);
+                  }}
+                  className="clear-btn"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            
+            <div className="limit-selector">
+              <label>Show: </label>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  const newLimit = parseInt(e.target.value);
+                  setLimit(newLimit);
+                  fetchTools(searchTerm, newLimit);
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
           {loading ? (
             <p>Loading tools...</p>
           ) : (
-            <div className="tools-grid">
-              {tools.length === 0 ? (
-                <p>No AI tools collected yet. Run the agent to find some!</p>
-              ) : (
-                tools.map((tool, index) => (
-                  <div key={index} className="tool-card">
-                    <h3>{tool.name}</h3>
-                    <p>{tool.description}</p>
-                    {tool.url && <p><a href={tool.url} target="_blank" rel="noopener noreferrer">{tool.url}</a></p>}
-                    {tool.source && <p>Source: {tool.source}</p>}
-                    {tool.search_query && <p>Search Query: {tool.search_query}</p>}
-                  </div>
-                ))
-              )}
+            <div className="tools-container">
+              <div className="tools-stats">
+                <p>Found {tools.length} tool{tools.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="tools-grid">
+                {tools.length === 0 ? (
+                  <p>No AI tools found. {searchTerm ? 'Try a different search term.' : 'Run the agent to find some!'}</p>
+                ) : (
+                  tools.map((tool, index) => (
+                    <div key={index} className="tool-card">
+                      <h3>{tool.name}</h3>
+                      <p>{tool.description}</p>
+                      {tool.url && <p><a href={tool.url} target="_blank" rel="noopener noreferrer">{tool.url}</a></p>}
+                      {tool.source && <p>Source: {tool.source}</p>}
+                      {tool.search_query && <p>Search Query: {tool.search_query}</p>}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </section>

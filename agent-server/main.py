@@ -1,7 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import sqlite3
 import asyncio
 from agent.core import create_ai_tools_agent
@@ -43,23 +43,58 @@ init_db()
 
 class ToolItem(BaseModel):
     name: str
-    description: str = None
-    url: str = None
-    source: str = None
-    search_query: str = None
+    description: str = ""
+    url: str = ""
+    source: str = ""
+    search_query: str = ""
 
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Top AI Tools Agent API"}
 
 @app.get("/tools", response_model=List[ToolItem])
-async def get_ai_tools():
+async def get_ai_tools(
+    limit: int = Query(50, ge=1, le=100, description="Number of tools to return"),
+    offset: int = Query(0, ge=0, description="Number of tools to skip"),
+    search: Optional[str] = Query(None, description="Search term to filter tools by name or description")
+):
     conn = sqlite3.connect(config.get_database_path())
     cursor = conn.cursor()
-    cursor.execute("SELECT name, description, url, source, search_query FROM ai_tools ORDER BY timestamp DESC")
+    
+    if search:
+        query = """
+            SELECT name, description, url, source, search_query 
+            FROM ai_tools 
+            WHERE name LIKE ? OR description LIKE ?
+            ORDER BY timestamp DESC
+            LIMIT ? OFFSET ?
+        """
+        search_pattern = f"%{search}%"
+        cursor.execute(query, (search_pattern, search_pattern, limit, offset))
+    else:
+        query = """
+            SELECT name, description, url, source, search_query 
+            FROM ai_tools 
+            ORDER BY timestamp DESC
+            LIMIT ? OFFSET ?
+        """
+        cursor.execute(query, (limit, offset))
+    
     tools = cursor.fetchall()
     conn.close()
-    return [ToolItem(name=t[0], description=t[1], url=t[2], source=t[3], search_query=t[4]) for t in tools]
+    
+    # Convert None values to empty strings for Pydantic compatibility
+    processed_tools = []
+    for t in tools:
+        processed_tools.append(ToolItem(
+            name=t[0] or "",
+            description=t[1] or "",
+            url=t[2] or "",
+            source=t[3] or "",
+            search_query=t[4] or ""
+        ))
+    
+    return processed_tools
 
 @app.post("/tools")
 async def add_ai_tool(tool_item: ToolItem):
