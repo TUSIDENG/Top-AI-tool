@@ -13,7 +13,7 @@ async def scrape_search_results(
 ) -> str:
     """
     Scrapes search results from a given URL using Playwright and parses them with BeautifulSoup.
-    Returns a JSON string of the extracted results.
+    Returns a JSON string of the extracted results. Limited to maximum 50 results.
     """
     print(f"🔧 TOOL_RUNTIME: Starting search: {url}")
     
@@ -29,11 +29,12 @@ async def scrape_search_results(
         html_content = await page.content()
         await browser.close()
 
-    print("🔧 TOOL_RUNTIME: Parsing search results...")
+    print("🔧 TOOL_RUNTIME: Parsing search results (max 50)...")
     
     soup = BeautifulSoup(html_content, 'html.parser')
     results = []
     result_count = 0
+    max_results = 50
     
     for item in soup.select(result_selector):
         title_element = item.select_one(title_selector)
@@ -47,12 +48,20 @@ async def scrape_search_results(
         results.append({"title": title, "link": link, "description": description})
         result_count += 1
         
-        if result_count % 5 == 0:
+        if result_count % 10 == 0:
             print(f"🔧 TOOL_RUNTIME: Found {result_count} results so far...")
+        
+        # Stop after reaching max results
+        if result_count >= max_results:
+            print(f"🔧 TOOL_RUNTIME: Reached maximum limit of {max_results} results")
+            break
 
-    print(f"✅ TOOL_RUNTIME: Search completed. Found {result_count} results.")
+    # Format and log the search results in JSON
+    json_results = json.dumps(results, ensure_ascii=False, indent=2)
+    print(f"🔧 TOOL_RUNTIME: Search results (JSON format, {len(results)} items):\n{json_results}")
+    print(f"✅ TOOL_RUNTIME: Search completed. Found {len(results)} results (limited to {max_results}).")
     
-    return json.dumps(results, ensure_ascii=False, indent=2)
+    return json_results
 
 @tool
 def google_search(query: str) -> str:
