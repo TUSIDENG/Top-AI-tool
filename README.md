@@ -16,7 +16,9 @@ This project aims to build an agent that collects information about "top AI tool
 
 ## Features
 
-*   **Multi-Engine Scraping**: Gather data from Google, Bing, and Baidu search engines.
+*   **General Search Scraping**: Gather data from general search engines (Google, Bing, Baidu).
+*   **Specialized Data Sources**: Collect information from specialized platforms like Hugging Face, arXiv, and THUDM GitHub repositories.
+
 *   **Data Persistence**: Store collected data in a local SQLite database (`ai_tools.db`).
 *   **Langchain Agent**: An intelligent agent that uses search tools and a database tool to find and store AI tool information.
 *   **Interactive UI**: A React interface for exploring AI tools and running the agent.
